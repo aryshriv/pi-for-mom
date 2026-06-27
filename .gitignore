@@ -1,0 +1,4 @@
+node_modules
+.maritime
+*.log
+.DS_Store

@@ -1,0 +1,18 @@
+{
+  "name": "pi-mom-agent",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A warm, mom-friendly web chat agent built on Mario Zechner's Pi (pi-mono), hosted on Maritime",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@earendil-works/pi-agent-core": "latest",
+    "@earendil-works/pi-ai": "latest"
+  }
+}
