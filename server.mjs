@@ -64,6 +64,28 @@ function historyFor(id) {
   return h
 }
 
+// Pull assistant text out of a pi-ai response, tolerant of shape changes
+// across versions (content blocks, message.content, plain string).
+function extractText(res) {
+  if (!res) return ''
+  if (typeof res === 'string') return res.trim()
+  const blocks = Array.isArray(res.content)
+    ? res.content
+    : Array.isArray(res.message?.content)
+      ? res.message.content
+      : null
+  if (blocks) {
+    return blocks
+      .map((b) => (typeof b === 'string' ? b : b?.text || ''))
+      .join('')
+      .trim()
+  }
+  if (typeof res.content === 'string') return res.content.trim()
+  if (typeof res.text === 'string') return res.text.trim()
+  if (typeof res.message?.content === 'string') return res.message.content.trim()
+  return ''
+}
+
 async function respond(id, userText) {
   if (mode === 'demo') {
     return `Hi! I'm ${ASSISTANT_NAME}. I'm set up and my chat works 💛 — I just need an ` +
@@ -72,11 +94,7 @@ async function respond(id, userText) {
   const history = historyFor(id)
   history.push({ role: 'user', content: userText, timestamp: Date.now() })
   const res = await models.complete(model, { messages: history })
-  const text = (res.content || [])
-    .filter((b) => b.type === 'text')
-    .map((b) => b.text)
-    .join('')
-    .trim()
+  const text = extractText(res)
   history.push({ role: 'assistant', content: text, timestamp: Date.now() })
   // Trim old turns but always keep the system message.
   if (history.length > MAX_TURNS * 2 + 1) {
@@ -99,6 +117,29 @@ const server = createServer(async (req, res) => {
     }
     if (req.method === 'GET' && req.url === '/health') {
       return send(res, 200, JSON.stringify({ ok: true, mode, provider, model: model.id }))
+    }
+    if (req.method === 'GET' && req.url === '/diag') {
+      const out = { provider, model: model.id, mode }
+      try {
+        const r = await fetch('https://api.openai.com/v1/models', {
+          headers: { authorization: 'Bearer ' + (process.env.OPENAI_API_KEY || '') },
+        })
+        out.openaiDirect = r.status
+      } catch (e) {
+        out.openaiDirect = 'ERR ' + String(e && e.message)
+      }
+      try {
+        const r = await models.complete(model, {
+          messages: [{ role: 'user', content: 'say hi', timestamp: Date.now() }],
+        })
+        out.completeKeys = Object.keys(r)
+        out.stopReason = r.stopReason
+        out.contentShape = JSON.stringify(r.content)?.slice(0, 300)
+        out.extracted = extractText(r)
+      } catch (e) {
+        out.completeError = String(e && e.message)
+      }
+      return send(res, 200, JSON.stringify(out))
     }
     if (req.method === 'POST' && req.url === '/api/chat') {
       let raw = ''
