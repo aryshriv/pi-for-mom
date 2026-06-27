@@ -123,7 +123,7 @@ const server = createServer(async (req, res) => {
       return send(res, 200, JSON.stringify({ ok: true, mode, provider, model: model.id }))
     }
     if (req.method === 'GET' && req.url === '/diag') {
-      const out = { provider, model: model.id, mode }
+      const out = { provider, model: model.id, mode, baseUrl: process.env.OPENAI_BASE_URL || '(default)' }
       try {
         const r = await fetch('https://api.openai.com/v1/models', {
           headers: { authorization: 'Bearer ' + (process.env.OPENAI_API_KEY || '') },
@@ -133,11 +133,18 @@ const server = createServer(async (req, res) => {
         out.openaiDirect = 'ERR ' + String(e && e.message)
       }
       try {
+        const r = await fetch('https://api.maritime.sh/health')
+        out.maritimeReach = r.status
+      } catch (e) {
+        out.maritimeReach = 'ERR ' + String(e && e.message)
+      }
+      try {
         const r = await models.complete(model, {
           messages: [{ role: 'user', content: 'say hi', timestamp: Date.now() }],
         })
         out.completeKeys = Object.keys(r)
         out.stopReason = r.stopReason
+        out.errorMessage = r.errorMessage
         out.contentShape = JSON.stringify(r.content)?.slice(0, 300)
         out.extracted = extractText(r)
       } catch (e) {
