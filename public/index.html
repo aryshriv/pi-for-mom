@@ -14,8 +14,8 @@
   header { padding:18px 20px 12px; text-align:center; }
   header .dot { width:46px;height:46px;border-radius:50%;margin:0 auto 8px;
     background:radial-gradient(circle at 35% 30%, #ffd28a, var(--accent)); box-shadow:0 6px 18px rgba(232,132,60,.35); }
-  header h1 { margin:0; font-size:22px; font-weight:700; }
-  header p { margin:2px 0 0; color:var(--soft); font-size:15px; }
+  header h1 { margin:0; font-size:26px; font-weight:700; letter-spacing:-0.01em; }
+  header p { margin:3px 0 0; color:var(--soft); font-size:14px; }
   #log { flex:1; overflow-y:auto; padding:8px 16px 4px; display:flex; flex-direction:column; gap:10px; }
   .msg { max-width:80%; padding:12px 16px; border-radius:20px; white-space:pre-wrap; word-wrap:break-word;
     box-shadow:0 1px 2px rgba(0,0,0,.05); animation:rise .18s ease-out; }
@@ -50,6 +50,9 @@
 <script>
   const log = document.getElementById('log'), box = document.getElementById('box'), f = document.getElementById('f');
   const NAME = "{{ASSISTANT_NAME}}";
+  // When served behind Maritime's public proxy the page lives at /a/<id>/ ,
+  // so API calls must be prefixed with that path (not absolute from root).
+  const BASE = (location.pathname.match(/^(\/a\/[^/]+)/) || [,''])[1];
   let sessionId = localStorage.getItem('pi_sid');
   if (!sessionId) { sessionId = Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('pi_sid', sessionId); }
 
@@ -64,7 +67,7 @@
     bubble(text, 'me');
     const t = bubble('…', 'pi'); t.classList.add('typing');
     try {
-      const r = await fetch('/api/chat', { method:'POST', headers:{'content-type':'application/json'},
+      const r = await fetch(BASE + '/api/chat', { method:'POST', headers:{'content-type':'application/json'},
         body: JSON.stringify({ message:text, sessionId }) });
       const data = await r.json();
       t.classList.remove('typing');
