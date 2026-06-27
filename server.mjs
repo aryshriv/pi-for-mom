@@ -62,7 +62,9 @@ const MAX_TURNS = 24
 function historyFor(id) {
   let h = sessions.get(id)
   if (!h) {
-    h = [{ role: 'system', content: SYSTEM_PROMPT, timestamp: Date.now() }]
+    // No system message in the array — pi-ai takes the persona via the
+    // `systemPrompt` field of the context (a role:'system' message is ignored).
+    h = []
     sessions.set(id, h)
   }
   return h
@@ -97,12 +99,16 @@ async function respond(id, userText) {
   }
   const history = historyFor(id)
   history.push({ role: 'user', content: userText, timestamp: Date.now() })
-  const res = await models.complete(model, { messages: history })
+  const res = await models.complete(model, { systemPrompt: SYSTEM_PROMPT, messages: history })
   const text = extractText(res)
-  history.push({ role: 'assistant', content: text, timestamp: Date.now() })
-  // Trim old turns but always keep the system message.
-  if (history.length > MAX_TURNS * 2 + 1) {
-    sessions.set(id, [history[0], ...history.slice(-(MAX_TURNS * 2))])
+  // Store the assistant turn in pi-ai's own shape (content BLOCKS, not a plain
+  // string) — otherwise the next turn sends a malformed assistant message and
+  // complete() returns empty. Reuse the returned blocks when available.
+  const assistantContent = Array.isArray(res.content) ? res.content : [{ type: 'text', text }]
+  history.push({ role: 'assistant', content: assistantContent, timestamp: Date.now() })
+  // Trim old turns (system prompt is passed separately, not stored here).
+  if (history.length > MAX_TURNS * 2) {
+    sessions.set(id, history.slice(-(MAX_TURNS * 2)))
   }
   return text
 }
@@ -140,6 +146,7 @@ const server = createServer(async (req, res) => {
       }
       try {
         const r = await models.complete(model, {
+          systemPrompt: SYSTEM_PROMPT,
           messages: [{ role: 'user', content: 'say hi', timestamp: Date.now() }],
         })
         out.completeKeys = Object.keys(r)
