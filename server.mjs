@@ -33,7 +33,11 @@ if (process.env.ANTHROPIC_API_KEY) {
   modelId = process.env.PI_MODEL || 'claude-3-7-sonnet-20250219'
   mode = 'live'
 } else if (process.env.OPENAI_API_KEY) {
-  models.setProvider(openaiProvider())
+  const prov = openaiProvider()
+  // Agent containers can't reach api.openai.com directly — route through an
+  // OpenAI-compatible proxy (e.g. Maritime's LLM proxy) when OPENAI_BASE_URL set.
+  if (process.env.OPENAI_BASE_URL) prov.baseUrl = process.env.OPENAI_BASE_URL
+  models.setProvider(prov)
   provider = 'openai'
   modelId = process.env.PI_MODEL || 'gpt-4.1'
   mode = 'live'
